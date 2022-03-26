@@ -1,57 +1,30 @@
+/* USER CODE BEGIN Header */
 /**
  ******************************************************************************
  * @file           : main.c
  * @brief          : Main program body
  ******************************************************************************
- ** This notice applies to any and all portions of this file
- * that are not between comment pairs USER CODE BEGIN and
- * USER CODE END. Other portions of this file, whether
- * inserted by the user or by software development tools
- * are owned by their respective copyright owners.
+ * @attention
  *
- * COPYRIGHT(c) 2018 STMicroelectronics
+ * Copyright (c) 2022 STMicroelectronics.
+ * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
- *   1. Redistributions of source code must retain the above copyright notice,
- *      this list of conditions and the following disclaimer.
- *   2. Redistributions in binary form must reproduce the above copyright notice,
- *      this list of conditions and the following disclaimer in the documentation
- *      and/or other materials provided with the distribution.
- *   3. Neither the name of STMicroelectronics nor the names of its contributors
- *      may be used to endorse or promote products derived from this software
- *      without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
  *
  ******************************************************************************
  */
+/* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include "main.h"
-#include "stm32f3xx_hal.h"
-
-/* USER CODE BEGIN Includes */
 /*
- * main.c
- *
- * This code measures the output from a bioamplifier circuit
- * and sends the values over to a PC over USART.
- * On startup, the code waits for the PC to tell it to start.
- *
- * Created By STM32CubeMX
- * Adapted By Ronan Byrne
- * Last Updated = 09/05/2018
- * 
- */
+#include <COPYstm32f3xx_hal_adc.c>
+#include <COPYstm32f3xx_hal_adc_ex.c>
+*/
+#include "main.h"
+
+#include "stm32f3xx_hal.h"
+#include "stm32f3xx_hal_adc.h"
 
 #include <string.h>
 #include "utils.h"
@@ -68,7 +41,8 @@
 
 /* USER CODE END Includes */
 
-/* Private variables ---------------------------------------------------------*/
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
@@ -78,9 +52,21 @@ UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_tx;
 DMA_HandleTypeDef hdma_usart1_rx;
 
-/* USER CODE BEGIN PV */
-/* Private variables ---------------------------------------------------------*/
+/* USER CODE END PTD */
 
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+UART_HandleTypeDef huart2;
+
+/* USER CODE BEGIN PV */
 /* __IO is volatile in HAL library */
 __IO uint8_t *print_str_ptr = NULL;
 __IO uint16_t adc_val[ADC_BUFF_SIZE] = { 0 }; /* Where the ADC values are stored */
@@ -91,40 +77,39 @@ __IO uint8_t end_of_message = 0; /* Flag is set when start of string has be sent
 __IO uint8_t start = 0; /* Flag to start main loop after receiving response from PC */
 
 uint8_t rx_buffer[UART_RX_BUFFER_SIZE] = { 0 }; /* Buffer for received messages over USART */
-circle_buff_s rx_control = { /* Struct for managing receive buffer */
-.buffer = rx_buffer, .head = 0, .tail = 0, .size = UART_RX_BUFFER_SIZE,
+circle_buff_s rx_control = { /* Struct for managing receive buffer */.buffer = rx_buffer, .head = 0, .tail = 0, .size = UART_RX_BUFFER_SIZE,
 		.wrapped = 0 };
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
+static void MX_USART2_UART_Init(void);
+
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM3_Init(void);
-
 /* USER CODE BEGIN PFP */
-/* Private function prototypes -----------------------------------------------*/
 
 /* USER CODE END PFP */
 
+/* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
 /* USER CODE END 0 */
 
 /**
  * @brief  The application entry point.
- *
- * @retval None
+ * @retval int
  */
 int main(void) {
 	/* USER CODE BEGIN 1 */
 
 	/* USER CODE END 1 */
 
-	/* MCU Configuration----------------------------------------------------------*/
+	/* MCU Configuration--------------------------------------------------------*/
 
 	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
 	HAL_Init();
@@ -141,11 +126,14 @@ int main(void) {
 	/* USER CODE END SysInit */
 
 	/* Initialize all configured peripherals */
+
+	MX_USART2_UART_Init();
 	MX_GPIO_Init();
 	MX_DMA_Init();
 	MX_USART1_UART_Init();
 	MX_ADC1_Init();
 	MX_TIM3_Init();
+
 	/* USER CODE BEGIN 2 */
 
 	/* Enable interrupt on single Byte receive in USART buffer */
@@ -157,7 +145,6 @@ int main(void) {
 
 	/* USER CODE END 2 */
 
-	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 
 	/* Loop around until "start\n" is received over USART */
@@ -179,12 +166,14 @@ int main(void) {
 	HAL_Status_Check(HAL_TIM_Base_Start_IT(&htim3));
 
 	/* Main Loop, sends the half the ADC buffer every 256ms and can send received messaged if enabled */
+
 	while (1) {
+		/* USER CODE END WHILE */
 		/* ADC values ready to send */
 		if (adc_print) {
 			/* This is actually sending half of the ADC buffer because of the cast, 512 uin8_t's or 256 uint16_t's */
 			HAL_print_raw((uint8_t*) (&adc_val) + adc_array_offset,
-					ADC_BUFF_SIZE);
+			ADC_BUFF_SIZE);
 			adc_print = 0;
 		}
 		/* Received message over USART, print it back */
@@ -200,20 +189,54 @@ int main(void) {
 				end_of_message = 0;
 			}
 			str_print = 0;
+			/* USER CODE BEGIN 3 */
 		}
-		/* USER CODE END WHILE */
-
-		/* USER CODE BEGIN 3 */
-
+		/* USER CODE END 3 */
 	}
-	/* USER CODE END 3 */
-
 }
 
 /**
  * @brief System Clock Configuration
  * @retval None
  */
+
+/*
+ void SystemClock_Config(void)
+ {
+
+
+ RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+ RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+ * Initializes the RCC Oscillators according to the specified parameters
+ * in the RCC_OscInitTypeDef structure.
+ *
+
+ RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+ RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+ RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+ RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+ if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+ {
+ Error_Handler();
+ }
+
+ * Initializes the CPU, AHB and APB buses clocks
+ *
+
+ RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+ |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+ RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+ RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+ RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+ RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+ if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+ {
+ Error_Handler();
+ }
+ */
+/* From Old FIles */
 void SystemClock_Config(void) {
 
 	RCC_OscInitTypeDef RCC_OscInitStruct;
@@ -359,7 +382,7 @@ static void MX_USART1_UART_Init(void) {
 
 }
 
-/** 
+/**
  * Enable DMA controller clock
  */
 static void MX_DMA_Init(void) {
@@ -379,16 +402,79 @@ static void MX_DMA_Init(void) {
 
 }
 
-/** Configure pins as 
- * Analog
- * Input
- * Output
- * EVENT_OUT
- * EXTI
- * Free pins are configured automatically as Analog (this feature is enabled through
- * the Code Generation settings)
- PA2   ------> USART2_TX
- PA15   ------> USART2_RX
+/**
+ * @brief USART2 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_USART2_UART_Init(void) {
+
+	/* USER CODE BEGIN USART2_Init 0 */
+
+	/* USER CODE END USART2_Init 0 */
+
+	/* USER CODE BEGIN USART2_Init 1 */
+
+	/* USER CODE END USART2_Init 1 */
+	huart2.Instance = USART2;
+	huart2.Init.BaudRate = 38400;
+	huart2.Init.WordLength = UART_WORDLENGTH_8B;
+	huart2.Init.StopBits = UART_STOPBITS_1;
+	huart2.Init.Parity = UART_PARITY_NONE;
+	huart2.Init.Mode = UART_MODE_TX_RX;
+	huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+	huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+	huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+	if (HAL_UART_Init(&huart2) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN USART2_Init 2 */
+
+	/* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+ * @brief GPIO Initialization Function
+ * @param None
+ * @retval None
+ *
+
+ static void MX_GPIO_Init(void)
+ {
+ GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+ * GPIO Ports Clock Enable *
+ __HAL_RCC_GPIOF_CLK_ENABLE();
+ __HAL_RCC_GPIOA_CLK_ENABLE();
+ __HAL_RCC_GPIOB_CLK_ENABLE();
+
+ *Configure GPIO pin Output Level *
+ HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
+
+ *Configure GPIO pin : PA0 *
+ GPIO_InitStruct.Pin = GPIO_PIN_0;
+ GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+ GPIO_InitStruct.Pull = GPIO_NOPULL;
+ HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+ *Configure GPIO pins : PA9 PA10 *
+ GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_10;
+ GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+ GPIO_InitStruct.Pull = GPIO_NOPULL;
+ GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+ GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
+ HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+ *Configure GPIO pin : PB3 *
+ GPIO_InitStruct.Pin = GPIO_PIN_3;
+ GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+ GPIO_InitStruct.Pull = GPIO_NOPULL;
+ GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+ HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+ }
  */
 static void MX_GPIO_Init(void) {
 
@@ -444,22 +530,24 @@ static void MX_GPIO_Init(void) {
 
 /* USER CODE BEGIN 4 */
 
-/* Called When the ADC has filled half of the buffer */
+/* Called When the ADC has filled half of the buffer
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc) {
-	/* Set flag to send first half of buffer */
+	* Set flag to send first half of buffer *
 	adc_print = 1;
 	adc_array_offset = 0;
 }
+*/
 
-/* Called when the ADC has filled the buffer */
+/* Called when the ADC has filled the buffer *
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
-	/* Set flag to send second half of buffer */
+	* Set flag to send second half of buffer *
 	adc_print = 1;
 	adc_array_offset = ADC_BUFF_OFFSET;
-	/* Tell DMA controller to restart filling the buffer */
+ 	 * Tell DMA controller to restart filling the buffer *
 	HAL_Status_Check(
 			HAL_ADC_Start_DMA(&hadc1, (uint32_t*) &adc_val, ADC_BUFF_SIZE));
 }
+*/
 
 /* Called when the UART has processed 1 byte, had to implement my own circular buffer this way
  * as HAL library didn't facilitate asynchronous receiving
@@ -510,18 +598,26 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	/* Re-enable byte received interrupt */
 	__HAL_UART_ENABLE_IT(huart, UART_IT_RXNE);
 }
-
 /* USER CODE END 4 */
 
-/**
- * @brief  This function is executed in case of error occurrence.
- * @param  file: The file name as string.
- * @param  line: The line in file as a number.
- * @retval None
- */
+
 void _Error_Handler(char *file, int line) {
 	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
+	while (1) {
+	}
+	/* USER CODE END Error_Handler_Debug */
+}
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+
+void Error_Handler(void) {
+	/* USER CODE BEGIN Error_Handler_Debug */
+	/* User can add his own implementation to report the HAL error return state */
+	__disable_irq();
 	while (1) {
 	}
 	/* USER CODE END Error_Handler_Debug */
@@ -535,21 +631,11 @@ void _Error_Handler(char *file, int line) {
   * @param  line: assert_param error line source number
   * @retval None
   */
-void assert_failed(uint8_t* file, uint32_t line)
-{ 
+void assert_failed(uint8_t *file, uint32_t line)
+{
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
-     tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-
-/**
- * @}
- */
-
-/**
- * @}
- */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

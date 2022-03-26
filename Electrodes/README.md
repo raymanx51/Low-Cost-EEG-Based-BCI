@@ -1,4 +1,4 @@
-# Low Cost EEG Electrodes
+ # Low Cost EEG Electrodes
 
 EEG Cup electrodes can be very expensive (>€10 per lead) in terms of an low cost project, so I decided to make my own. I made mine using a standard ECG pad electrode, a rubber shower hose washer (inner diameter of 10mm) and a 13mm metal button snap. I also made some ear clips electrodes using the EEG cup electrodes and a clothes peg.
 
