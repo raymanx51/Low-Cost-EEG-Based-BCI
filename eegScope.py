@@ -102,7 +102,8 @@ class Scope(object):
             return
 
         # Create log file
-        self.filename = '/home/ronan/Documents/EEG_csv/' + time.ctime() + '.csv'
+        # self.filename = '/home/ronan/Documents/EEG_csv/' + time.ctime() + '.csv'
+        self.filename = '\\Users\\Ray\\Documents\\' + time.ctime() + '.csv'
         self.filename = self.filename.replace(':', '-')  # colon not allowed in windows codename
         print('Opening data log file ' + self.filename + ' ...')
         self.logfile = open(self.filename, 'w')
@@ -203,5 +204,6 @@ class Scope(object):
 
 
 if __name__ == '__main__':
-    scope = Scope('/dev/ttyUSB0', None)
+    # scope = Scope('/dev/ttyUSB0', None)
+    scope = Scope('COM4', None)
     scope.start()
