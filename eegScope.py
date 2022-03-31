@@ -205,5 +205,5 @@ class Scope(object):
 
 if __name__ == '__main__':
     # scope = Scope('/dev/ttyUSB0', None)
-    scope = Scope('COM4', None)
+    scope = Scope('COM3', None)
     scope.start()
