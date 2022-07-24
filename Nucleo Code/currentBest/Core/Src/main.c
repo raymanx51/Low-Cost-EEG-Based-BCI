@@ -24,51 +24,16 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "utils.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-
-TIM_HandleTypeDef htim3;
-
-
-
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
-
-
-
-// We are defining a type of thing. We will have many of these within an array
-// Old Test Code
-// #define ADC_BUF_LEN 4096
-
-
-/* Enable Printing of Receive Messages From USART */
-#define RECEIVE_PRINT_EN		0
-#define ADC_BUFF_SIZE			512
-#define ADC_BUFF_HALF_SIZE 		ADC_BUFF_SIZE/2
-/* The offset is the size of adc array as this accounts for casting 16bit to 8bit int */
-#define ADC_BUFF_OFFSET			ADC_BUFF_SIZE
-#define UART_RX_BUFFER_SIZE		256
-#define END_OF_MESSAGE_CHAR		'\n'
-#define START_STR			"start\n"
-
-
-
-
-
-
-
-
-
-
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -78,54 +43,11 @@ TIM_HandleTypeDef htim3;
 
 /* Private variables ---------------------------------------------------------*/
  ADC_HandleTypeDef hadc1;
-DMA_HandleTypeDef hdma_adc1;
-
-TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
-DMA_HandleTypeDef hdma_usart1_rx;
-DMA_HandleTypeDef hdma_usart1_tx;
 
 /* USER CODE BEGIN PV */
-
-
-
-
-
-
-
-
-/* __IO is volatile in HAL library */
-__IO uint8_t *print_str_ptr = NULL;
-__IO uint16_t adc_val[ADC_BUFF_SIZE] = { 0 }; /* Where the ADC values are stored */
-__IO uint16_t adc_array_offset = 0; /* Offset for sending first or second half of ADC buffer */
-__IO uint8_t adc_print = 0; /* Print adc values flag */
-__IO uint8_t str_print = 0; /* Print string flag */
-__IO uint8_t end_of_message = 0; /* Flag is set when start of string has be sent */
-__IO uint8_t start = 0; /* Flag to start main loop after receiving response from PC */
-
-uint8_t rx_buffer[UART_RX_BUFFER_SIZE] = { 0 }; /* Buffer for received messages over USART */
-circle_buff_s rx_control = { /* Struct for managing receive buffer */.buffer = rx_buffer, .head = 0, .tail = 0, .size = UART_RX_BUFFER_SIZE,
-		.wrapped = 0 };
-
-
-
-
-
-
-
-
-// Old Test Code
-// We use many of those buffers and keep em in this array
-//uint16_t adc_buf[ADC_BUF_LEN];
-
-
-
-
-
-
-
 
 /* USER CODE END PV */
 
@@ -133,10 +55,8 @@ circle_buff_s rx_control = { /* Struct for managing receive buffer */.buffer = r
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
-static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_USART1_UART_Init(void);
-static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -154,6 +74,8 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 
+	uint16_t raw;
+	char msg[10];
 
 
   /* USER CODE END 1 */
@@ -177,120 +99,37 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
-  MX_DMA_Init();
   MX_ADC1_Init();
   MX_USART1_UART_Init();
-  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-
-  // OLD TEST CODE
-  // HAL library will start the DMC for us
-  // HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUF_LEN);
-
-
-
-
-
-	/* Enable interrupt on single Byte receive in USART buffer */
-	__HAL_UART_ENABLE_IT(&huart1, UART_IT_RXNE);
-
-	/* Workaround for asynchronous UART RX */
-	huart1.pRxBuffPtr = rx_control.buffer; /* Tell USART where to place received bytes */
-	huart1.Mask = 0xFFU; /* Setting no parity bits */
-
-
-
-
-
-
-
-
-
-
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
-
-
-
-	// Commenting to see if will work
-//  Loop around until "start\n" is received over USART
-  while (!start)
+  while (1)
   {
+	// HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
+	// HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
-	  HAL_printf("s"); // Send "ss/n" over USART
-	  HAL_Delay(500); // Delay 500ms
-  }
+	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
 
+	raw = HAL_ADC_GetValue(&hadc1);
 
+	// HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
 
+	// HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
+	sprintf(msg, "%hu\r\n", raw);
+	HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
 
-  /* Received start from PC, acknowledge and start */
-  	HAL_printf("starting");
-
-  	/* Calibrate ADC */
-  	HAL_Status_Check(HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED));
-
-  	/* Start DMA controller taking samples from ADC and placing them in buffer */
-  	HAL_Status_Check(
-  			HAL_ADC_Start_DMA(&hadc1, (uint32_t*) &adc_val, ADC_BUFF_SIZE));
-
-  	/* Start timer used to trigger ADC conversions, timer set to 1KHz */
-  	HAL_Status_Check(HAL_TIM_Base_Start_IT(&htim3));
-
-  	/* Main Loop, sends the half the ADC buffer every 256ms and can send received messaged if enabled */
-
-
-
-
-
+	HAL_Delay(1);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-
-
-
-
-
-
-  	while (1) {
-
-		/* ADC values ready to send */
-				if (adc_print) {
-					/* This is actually sending half of the ADC buffer because of the cast, 512 uin8_t's or 256 uint16_t's */
-					HAL_print_raw((uint8_t*) (&adc_val) + adc_array_offset,
-					ADC_BUFF_SIZE);
-					adc_print = 0;
-				}
-				/* Received message over USART, print it back */
-				if (str_print && RECEIVE_PRINT_EN) {
-					/* Full message received, send in one go */
-					if (!end_of_message) {
-						HAL_printf("Received %s", print_str_ptr);
-					}
-					/* Start of message already sent, print end of message */
-					else {
-						HAL_print_raw((uint8_t*) print_str_ptr, rx_control.head);
-						HAL_print_raw((uint8_t*) '\n', 1);
-						end_of_message = 0;
-					}
-					str_print = 0;
-				}
-	}
-
-
-
-
-
-
-
-
-
+  }
   /* USER CODE END 3 */
 }
 
@@ -310,7 +149,9 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -329,8 +170,9 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_ADC12;
   PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK1;
+  PeriphClkInit.Adc12ClockSelection = RCC_ADC12PLLCLK_DIV1;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
@@ -359,16 +201,16 @@ static void MX_ADC1_Init(void)
   /** Common config
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
-  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T3_TRGO;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = ENABLE;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
   hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
@@ -404,50 +246,6 @@ static void MX_ADC1_Init(void)
 }
 
 /**
-  * @brief TIM3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM3_Init(void)
-{
-
-  /* USER CODE BEGIN TIM3_Init 0 */
-
-  /* USER CODE END TIM3_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM3_Init 1 */
-  /* USER CODE END TIM3_Init 1 */
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 100 - 1;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 640;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM3_Init 2 */
-
-  /* USER CODE END TIM3_Init 2 */
-
-}
-
-/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -463,7 +261,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 57600;
+  huart1.Init.BaudRate = 38400;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -518,28 +316,6 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void)
-{
-
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
-  /* DMA1_Channel4_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
-  /* DMA1_Channel5_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -566,108 +342,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-
-
-
-
-// Called When the ADC has filled half of the buffer
-void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc) {
-	//* Set flag to send first half of buffer *
-	adc_print = 1;
-	adc_array_offset = 0;
-}
-
-
-// Called when the ADC has filled the buffer
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
-	// Set flag to send second half of buffer
-	adc_print = 1;
-	adc_array_offset = ADC_BUFF_OFFSET;
- 	 // Tell DMA controller to restart filling the buffer
-	HAL_Status_Check(
-			HAL_ADC_Start_DMA(&hadc1, (uint32_t*) &adc_val, ADC_BUFF_SIZE));
-}
-
-
-/* Called when the UART has processed 1 byte, had to implement my own circular buffer this way
- * as HAL library didn't facilitate asynchronous receiving
- */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-	/* End of buffer, print start of message */
-	if ((uint32_t) huart->pRxBuffPtr
-			>= ((uint32_t) (rx_control.buffer) + rx_control.size - 1)) {
-		print_str_ptr = rx_control.buffer + rx_control.tail;
-		huart->pRxBuffPtr = rx_control.buffer;
-		rx_control.head = 0;
-		rx_control.tail = 0;
-		rx_control.wrapped = 1;
-		str_print = 1;
-	} else {
-		rx_control.head++;
-	}
-
-	/* Full message received, process it */
-	if ((uint8_t) *(rx_control.buffer + rx_control.head - 1)
-			== (uint8_t) END_OF_MESSAGE_CHAR) {
-		/* Don't set print_str_ptr if it was set already above */
-		if (!str_print) {
-			print_str_ptr = rx_control.buffer + rx_control.tail;
-			if (RECEIVE_PRINT_EN) {
-				str_print = 1;
-			}
-		}
-
-		/* Start message received from PC, start main loop */
-		if (!start
-				&& !(strncmp((char*) print_str_ptr, START_STR,
-						strlen(START_STR)))) {
-			start = 1;
-		}
-		rx_control.tail = rx_control.head;
-
-		/* If receive buffer has wrapped around, print end of message and memset rest of buffer */
-		if (rx_control.wrapped) {
-			rx_control.wrapped = 0;
-			/* memset everything after current message */
-			memset(rx_control.buffer + rx_control.tail, 0,
-					rx_control.size - rx_control.tail);
-			end_of_message = 1;
-		}
-	}
-
-	/* Re-enable byte received interrupt */
-	__HAL_UART_ENABLE_IT(huart, UART_IT_RXNE);
-}
-
-
-
-
-
-
-
-
-
-
-/*
-// Called when first half of buffer is filled
-void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc){
-	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
-}
-
-
-
-// Called when buffer is completely full
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
-	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
-}
-*/
-
-
-
-
-
-
 
 /* USER CODE END 4 */
 
