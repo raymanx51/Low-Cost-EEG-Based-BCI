@@ -12,7 +12,7 @@ if __name__ == '__main__':
     checker_frequency = np.array([10, 20, 15, 5, 12])   # Flashing Frequencies
 
     # Serial port
-    port = '/dev/ttyUSB0'
+    port = '/dev/tty.usbserial-1420'
 
     # Creating a pipe
     parent_conn, child_conn = multiprocessing.Pipe()

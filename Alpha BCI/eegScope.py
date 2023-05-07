@@ -10,6 +10,7 @@ from pyqtgraph.Qt import QtCore, QtWidgets
 import pyqtgraph as pg
 import numpy as np
 import serial
+# from serial import Serial
 import threading
 import time
 import sys
@@ -102,7 +103,7 @@ class Scope(object):
             return
 
         # Create log file
-        self.filename = '/home/ronan/Documents/EEG_csv/' + time.ctime() + '.csv'
+        self.filename = '/Users/cassandra/Documents/rayz/EEG_csv/' + time.ctime() + '.csv'
         self.filename = self.filename.replace(':', '-')  # colon not allowed in windows codename
         print('Opening data log file ' + self.filename + ' ...')
         self.logfile = open(self.filename, 'w')
@@ -203,5 +204,6 @@ class Scope(object):
 
 
 if __name__ == '__main__':
-    scope = Scope('/dev/ttyUSB0', None)
+    #/dev/tty.usbmodem14203 /dev/tty.usbserial-1420
+    scope = Scope('/dev/tty.usbserial-1420', None)
     scope.start()
